@@ -1,0 +1,13 @@
+path: /home/mandra/Documentos/Python/mineria_hiragana/dataset
+
+train: images/train
+val: images/val
+test: images/test
+
+# Clases - Solo Hiragana (71)
+names:
+  0: 'あ'
+  1: 'い'
+  2: 'う'
+  3: 'え'
+  4: 'お'

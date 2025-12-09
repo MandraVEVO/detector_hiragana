@@ -5,6 +5,7 @@ import cv2
 from ultralytics import YOLO
 import numpy as np
 from pathlib import Path
+import pandas as pd  # Para timestamp en guardado
 
 # Diccionario para convertir caracteres a rōmaji
 CHAR_TO_ROMAJI = {
@@ -47,7 +48,7 @@ class CharacterDetectorGUI:
         self.root.geometry("1000x700")
         
         # Cargar modelo automáticamente
-        self.default_model_path = "/home/mandra/.pyenv/runs/detect/hiragana_detector5/weights/best.pt"
+        self.default_model_path = "/home/mandra/.pyenv/runs/detect/hiragana_detector7/weights/best.pt"
         self.model = None
         self.current_image = None
         self.original_image = None
@@ -69,34 +70,35 @@ class CharacterDetectorGUI:
         ttk.Entry(top_frame, textvariable=self.model_path, width=50).grid(row=0, column=1, padx=5)
         ttk.Button(top_frame, text="Cambiar Modelo", command=self.load_model).grid(row=0, column=2, padx=5)
         
-        # Frame izquierdo: Controles
+        # Frame izquierdo
         left_frame = ttk.Frame(self.root, padding="10")
         left_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.E, tk.S))
         
         ttk.Button(left_frame, text="Abrir Imagen", command=self.load_image, width=20).grid(row=0, column=0, pady=5)
         ttk.Button(left_frame, text="Tomar Foto (Webcam)", command=self.open_webcam, width=20).grid(row=1, column=0, pady=5)
         ttk.Button(left_frame, text="Detectar Caracteres", command=self.detect_characters, width=20).grid(row=2, column=0, pady=5)
+
+        # ▶ NUEVO BOTÓN PARA GUARDAR IMAGEN
+        ttk.Button(left_frame, text="Guardar Imagen", command=self.save_image, width=20).grid(row=3, column=0, pady=5)
         
-        ttk.Label(left_frame, text="Confianza:").grid(row=3, column=0, pady=5)
+        ttk.Label(left_frame, text="Confianza:").grid(row=4, column=0, pady=5)
         self.confidence = tk.DoubleVar(value=0.5)
-        ttk.Scale(left_frame, from_=0.1, to=1.0, variable=self.confidence, orient=tk.HORIZONTAL).grid(row=4, column=0, pady=5)
+        ttk.Scale(left_frame, from_=0.1, to=1.0, variable=self.confidence, orient=tk.HORIZONTAL).grid(row=5, column=0, pady=5)
         self.conf_label = ttk.Label(left_frame, text="0.5")
-        self.conf_label.grid(row=5, column=0)
+        self.conf_label.grid(row=6, column=0)
         self.confidence.trace('w', lambda *args: self.conf_label.config(text=f"{self.confidence.get():.2f}"))
         
-        # Área de resultados
-        ttk.Label(left_frame, text="Resultados:").grid(row=6, column=0, pady=(20, 5))
+        ttk.Label(left_frame, text="Resultados:").grid(row=7, column=0, pady=(20, 5))
         self.results_text = tk.Text(left_frame, width=30, height=15)
-        self.results_text.grid(row=7, column=0, pady=5)
+        self.results_text.grid(row=8, column=0, pady=5)
         
-        # Frame derecho: Canvas para imagen
+        # Frame derecho
         right_frame = ttk.Frame(self.root, padding="10")
         right_frame.grid(row=1, column=1, sticky=(tk.N, tk.W, tk.E, tk.S))
         
         self.canvas = tk.Canvas(right_frame, width=640, height=480, bg='gray')
         self.canvas.pack()
         
-        # Eventos del mouse para seleccionar región
         self.canvas.bind("<ButtonPress-1>", self.on_mouse_press)
         self.canvas.bind("<B1-Motion>", self.on_mouse_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_mouse_release)
@@ -104,7 +106,6 @@ class CharacterDetectorGUI:
         ttk.Label(right_frame, text="Haz clic y arrastra para seleccionar la región del carácter").pack(pady=5)
     
     def load_default_model(self):
-        """Carga el modelo por defecto al iniciar"""
         if Path(self.default_model_path).exists():
             try:
                 self.model = YOLO(self.default_model_path)
@@ -112,8 +113,8 @@ class CharacterDetectorGUI:
             except Exception as e:
                 messagebox.showerror("Error", f"Error al cargar modelo: {str(e)}")
         else:
-            messagebox.showwarning("Modelo no encontrado", 
-                                 f"No se encontró el modelo en:\n{self.default_model_path}\n\nPor favor selecciona un modelo manualmente.")
+            messagebox.showwarning("Modelo no encontrado",
+                f"No se encontró el modelo en:\n{self.default_model_path}\n\nPor favor selecciona un modelo manualmente.")
     
     def load_model(self):
         model_file = filedialog.askopenfilename(
@@ -171,7 +172,6 @@ class CharacterDetectorGUI:
         update_frame()
     
     def display_image(self, image):
-        # Redimensionar imagen para que quepa en el canvas
         height, width = image.shape[:2]
         max_width, max_height = 640, 480
         
@@ -204,11 +204,9 @@ class CharacterDetectorGUI:
     
     def on_mouse_release(self, event):
         if self.start_x and self.start_y:
-            # Coordenadas de la región seleccionada
             x1, y1 = min(self.start_x, event.x), min(self.start_y, event.y)
             x2, y2 = max(self.start_x, event.x), max(self.start_y, event.y)
             
-            # Escalar coordenadas a la imagen original
             canvas_width = self.canvas.winfo_width()
             canvas_height = self.canvas.winfo_height()
             orig_height, orig_width = self.original_image.shape[:2]
@@ -221,7 +219,6 @@ class CharacterDetectorGUI:
             x2_orig = int(x2 * scale_x)
             y2_orig = int(y2 * scale_y)
             
-            # Recortar región
             self.current_image = self.original_image[y1_orig:y2_orig, x1_orig:x2_orig]
     
     def detect_characters(self):
@@ -234,14 +231,12 @@ class CharacterDetectorGUI:
             return
         
         try:
-            # Realizar predicción
             results = self.model.predict(
                 source=self.current_image,
                 conf=self.confidence.get(),
                 verbose=False
             )
             
-            # Procesar resultados
             self.results_text.delete(1.0, tk.END)
             romaji_result = []
             
@@ -259,7 +254,6 @@ class CharacterDetectorGUI:
                     self.results_text.insert(tk.END, f"• {class_name} ({romaji})\n")
                     self.results_text.insert(tk.END, f"  Confianza: {confidence:.2%}\n\n")
                 
-                # Mostrar imagen con detecciones
                 annotated = result.plot()
                 self.display_image(annotated)
             
@@ -268,6 +262,23 @@ class CharacterDetectorGUI:
             
         except Exception as e:
             messagebox.showerror("Error", f"Error en la detección: {str(e)}")
+
+    # ------------------------------------------
+    # 🚀 NUEVA FUNCIÓN PARA GUARDAR LA IMAGEN
+    # ------------------------------------------
+    def save_image(self):
+        save_dir = Path("/home/mandra/Documentos/Python/mineria_hiragana/test_images")
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.current_image is None:
+            messagebox.showwarning("Advertencia", "No hay imagen para guardar.")
+            return
+
+        filename = save_dir / f"test_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.png"
+
+        cv2.imwrite(str(filename), self.current_image)
+
+        messagebox.showinfo("Imagen Guardada", f"Guardada en:\n{filename}")
     
     def __del__(self):
         if self.cap:

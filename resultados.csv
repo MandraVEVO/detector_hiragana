@@ -1,0 +1,11 @@
+Imagen,Real,Predicho
+a_1.jpeg,あ,No detection
+a_2.png,あ,あ
+e_1.jpeg,え,No detection
+e_2.jpeg,え,え
+i_1.jpeg,い,い
+i_2.jpg,い,い
+o_1.jpeg,お,お
+o_2.png,お,お
+u_1.jpeg,う,う
+u_2.jpeg,う,No detection
